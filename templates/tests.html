@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloodSync - Screening Tests</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bs-primary: #D32F2F;
+            --sidebar-width: 260px;
+            --primary-red: #D32F2F;
+            --bg-light: #F8F9FA;
+            --font-family: 'Outfit', sans-serif;
+        }
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-light);
+            overflow-x: hidden;
+        }
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background-color: #FFFFFF;
+            border-right: 1px solid #E5E7EB;
+            z-index: 1000;
+        }
+        .sidebar-brand {
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 700;
+            font-size: 1.3rem;
+            color: var(--primary-red);
+            border-bottom: 1px solid #F3F4F6;
+        }
+        .sidebar-menu {
+            padding: 1rem 0;
+            list-style: none;
+            margin: 0;
+        }
+        .menu-item a {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1.5rem;
+            color: #4B5563;
+            text-decoration: none;
+            font-weight: 500;
+            border-left: 4px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .menu-item a:hover, .menu-item.active a {
+            color: var(--primary-red);
+            background-color: rgba(211, 47, 47, 0.05);
+            border-left-color: var(--primary-red);
+        }
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        .table-responsive {
+            background: #FFFFFF;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1060;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <i class="bi bi-droplet-fill"></i>
+            <span>BloodSync</span>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="menu-item">
+                <a href="dashboard.html"><i class="bi bi-grid-1x2-fill"></i> Overview</a>
+            </li>
+            <li class="menu-item">
+                <a href="donors.html"><i class="bi bi-people-fill"></i> Donors</a>
+            </li>
+            <li class="menu-item">
+                <a href="stock.html"><i class="bi bi-bag-plus-fill"></i> Blood Stock</a>
+            </li>
+            <li class="menu-item">
+                <a href="requests.html"><i class="bi bi-envelope-exclamation-fill"></i> Blood Requests</a>
+            </li>
+            <li class="menu-item">
+                <a href="appointments.html"><i class="bi bi-calendar-event-fill"></i> Appointments</a>
+            </li>
+            <li class="menu-item active">
+                <a href="tests.html"><i class="bi bi-shield-check"></i> Screening Tests</a>
+            </li>
+            <li class="menu-item">
+                <a href="staff.html"><i class="bi bi-person-badge-fill"></i> Staff</a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h3 fw-bold mb-0">Blood Screening & Lab Tests</h1>
+                <p class="text-muted small">Perform ELISA screenings on new donations to verify safety parameters.</p>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="position-relative" style="cursor:pointer;" title="Notifications">
+                    <i class="bi bi-bell-fill fs-5 text-secondary"></i>
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notifBadge" style="font-size:0.65rem;">0</span>
+                </div>
+                <span class="badge bg-danger p-2" id="userBadge">Guest</span>
+                <button class="btn btn-outline-secondary btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Sign Out</button>
+                <button class="btn btn-danger d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#testModal">
+                    <i class="bi bi-plus-circle"></i> Log Screening Result
+                </button>
+            </div>
+        </header>
+
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Test ID</th>
+                            <th>Donor Name</th>
+                            <th>Donation History ID</th>
+                            <th>Disease Screened</th>
+                            <th>Outcome</th>
+                            <th>Tested At</th>
+                        </tr>
+                    </thead>
+                    <tbody id="testsTableBody">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Test Modal -->
+    <div class="modal fade" id="testModal" tabindex="-1" aria-labelledby="testModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="testForm" onsubmit="saveTest(event)">
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold" id="testModalLabel">Log Screening Test</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-start">
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Donation History ID</label>
+                                <input type="number" id="donation_history_id" class="form-control" placeholder="Enter Donation History ID" required>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Disease Screened</label>
+                                <select id="disease_screened" class="form-select" required>
+                                    <option value="HIV">HIV ELISA</option>
+                                    <option value="Hepatitis B">Hepatitis B</option>
+                                    <option value="Hepatitis C">Hepatitis C</option>
+                                    <option value="Malaria">Malaria</option>
+                                    <option value="Syphilis">Syphilis</option>
+                                </select>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Test Outcome</label>
+                                <select id="outcome" class="form-select" required>
+                                    <option value="Passed">Passed (Safe for distribution)</option>
+                                    <option value="Failed">Failed (Discard donation)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-danger">Save Result</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications Toast -->
+    <div class="toast-container">
+        <div id="liveToast" class="toast align-items-center text-white bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toastMessage">Action executed successfully.</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE_URL = "http://127.0.0.1:8000/api";
+        // Auth guard
+        if (!localStorage.getItem('username')) { window.location.href = 'login.html'; }
+        const userRole = localStorage.getItem('userRole');
+        const loggedInUser = localStorage.getItem('username');
+
+        let modalInstance;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            modalInstance = new bootstrap.Modal(document.getElementById('testModal'));
+            loadTests();
+            document.getElementById('userBadge').innerText = `${loggedInUser} (${userRole})`;
+            pollNotifications();
+            setInterval(pollNotifications, 10000);
+        });
+
+        async function loadTests() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/tests/`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const tableBody = document.getElementById("testsTableBody");
+                    tableBody.innerHTML = "";
+                    
+                    data.forEach(item => {
+                        const statusBadge = item.outcome === "Passed" ? "bg-success" : "bg-danger";
+                        const row = `
+                            <tr>
+                                <td>#${item.id}</td>
+                                <td><strong>${item.donor_name}</strong></td>
+                                <td>Donation Log ID: ${item.donation_history_id}</td>
+                                <td>${item.disease_screened}</td>
+                                <td><span class="badge ${statusBadge}">${item.outcome}</span></td>
+                                <td>${item.tested_at}</td>
+                            </tr>
+                        `;
+                        tableBody.insertAdjacentHTML('beforeend', row);
+                    });
+                }
+            } catch (e) {
+                showToast("Failed to fetch screening tests.");
+            }
+        }
+
+        async function saveTest(event) {
+            event.preventDefault();
+            const dhId = document.getElementById("donation_history_id").value;
+            const disease = document.getElementById("disease_screened").value;
+            const outcome = document.getElementById("outcome").value;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/tests/?donation_history_id=${dhId}&disease_screened=${disease}&outcome=${outcome}`, {
+                    method: "POST"
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    modalInstance.hide();
+                    showToast("Test logged successfully! Blood stock updated if passed.");
+                    loadTests();
+                } else {
+                    showToast(`Error: ${data.detail}`);
+                }
+            } catch (err) {
+                showToast("Connection issue.");
+            }
+        }
+
+        function showToast(message) {
+            document.getElementById("toastMessage").innerText = message;
+            const toast = new bootstrap.Toast(document.getElementById('liveToast'));
+            toast.show();
+        }
+
+        let lastNotifCount = 0;
+        async function pollNotifications() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/notifications/count`);
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('notifBadge').innerText = data.count;
+                    if (data.count > lastNotifCount && lastNotifCount > 0) {
+                        const nRes = await fetch(`${API_BASE_URL}/notifications`);
+                        if (nRes.ok) {
+                            const notifs = await nRes.json();
+                            if (notifs.length > 0) showLiveToast(notifs[0].message, notifs[0].type);
+                        }
+                    }
+                    lastNotifCount = data.count;
+                }
+            } catch(e) { console.error(e); }
+        }
+        function showLiveToast(message, type) {
+            const container = document.getElementById('liveToastContainer');
+            if (!container) return;
+            const toastId = 'toast_' + Date.now();
+            const bgClass = type && type.includes('CRITICAL') ? 'bg-danger' : 'bg-dark';
+            const html = `<div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0 mb-2" role="alert"><div class="d-flex"><div class="toast-body"><i class="bi bi-bell-fill me-2"></i>${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
+            container.insertAdjacentHTML('beforeend', html);
+            const toastEl = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+            toast.show();
+            toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+        }
+        function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+    </script>
+    <div id="liveToastContainer" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:1080;"></div>
+</body>
+</html>

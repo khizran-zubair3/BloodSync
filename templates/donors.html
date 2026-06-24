@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BloodSync - Donors Management</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bs-primary: #D32F2F;
+            --sidebar-width: 260px;
+            --primary-red: #D32F2F;
+            --bg-light: #F8F9FA;
+            --font-family: 'Outfit', sans-serif;
+        }
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-light);
+            overflow-x: hidden;
+        }
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background-color: #FFFFFF;
+            border-right: 1px solid #E5E7EB;
+            z-index: 1000;
+        }
+        .sidebar-brand {
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 700;
+            font-size: 1.3rem;
+            color: var(--primary-red);
+            border-bottom: 1px solid #F3F4F6;
+        }
+        .sidebar-menu {
+            padding: 1rem 0;
+            list-style: none;
+            margin: 0;
+        }
+        .menu-item a {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1.5rem;
+            color: #4B5563;
+            text-decoration: none;
+            font-weight: 500;
+            border-left: 4px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .menu-item a:hover, .menu-item.active a {
+            color: var(--primary-red);
+            background-color: rgba(211, 47, 47, 0.05);
+            border-left-color: var(--primary-red);
+        }
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 2rem;
+            min-height: 100vh;
+        }
+        .table-responsive {
+            background: #FFFFFF;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+        .badge-blood {
+            background-color: var(--primary-red);
+            color: white;
+            padding: 0.35em 0.65em;
+            font-size: 0.85em;
+            border-radius: 5px;
+        }
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1060;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <i class="bi bi-droplet-fill"></i>
+            <span>BloodSync</span>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="menu-item">
+                <a href="dashboard.html"><i class="bi bi-grid-1x2-fill"></i> Overview</a>
+            </li>
+            <li class="menu-item active">
+                <a href="donors.html"><i class="bi bi-people-fill"></i> Donors</a>
+            </li>
+            <li class="menu-item">
+                <a href="stock.html"><i class="bi bi-bag-plus-fill"></i> Blood Stock</a>
+            </li>
+            <li class="menu-item">
+                <a href="requests.html"><i class="bi bi-envelope-exclamation-fill"></i> Blood Requests</a>
+            </li>
+            <li class="menu-item">
+                <a href="appointments.html"><i class="bi bi-calendar-event-fill"></i> Appointments</a>
+            </li>
+            <li class="menu-item">
+                <a href="tests.html"><i class="bi bi-shield-check"></i> Screening Tests</a>
+            </li>
+            <li class="menu-item">
+                <a href="staff.html"><i class="bi bi-person-badge-fill"></i> Staff</a>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <header class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h3 fw-bold mb-0">Donors Directory</h1>
+                <p class="text-muted small">Manage volunteer blood donors and view eligibility.</p>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="position-relative" style="cursor:pointer;" title="Notifications">
+                    <i class="bi bi-bell-fill fs-5 text-secondary"></i>
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notifBadge" style="font-size:0.65rem;">0</span>
+                </div>
+                <span class="badge bg-danger p-2" id="userBadge">Guest</span>
+                <button class="btn btn-outline-secondary btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Sign Out</button>
+                <button class="btn btn-danger d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#donorModal" onclick="prepareAdd()">
+                    <i class="bi bi-plus-lg"></i> Register Donor
+                </button>
+            </div>
+        </header>
+
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>First Name</th>
+                            <th>Last Name</th>
+                            <th>Blood Group</th>
+                            <th>Category</th>
+                            <th>Phone</th>
+                            <th>Last Donation</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="donorsTableBody">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Form -->
+    <div class="modal fade" id="donorModal" tabindex="-1" aria-labelledby="donorModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="donorForm" onsubmit="saveDonor(event)">
+                    <input type="hidden" id="donorId">
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold" id="donorModalLabel">Register New Donor</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-start">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">First Name</label>
+                                <input type="text" id="firstname" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Last Name</label>
+                                <input type="text" id="lastname" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Blood Group</label>
+                                <select id="blood_type_id" class="form-select" required>
+                                    <option value="1">O+</option>
+                                    <option value="2">O-</option>
+                                    <option value="3">A+</option>
+                                    <option value="4">A-</option>
+                                    <option value="5">B+</option>
+                                    <option value="6">B-</option>
+                                    <option value="7">AB+</option>
+                                    <option value="8">AB-</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Phone</label>
+                                <input type="text" id="customer_phone" class="form-control" required>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Category</label>
+                                <select id="donor_category_id" class="form-select">
+                                    <option value="1">Regular</option>
+                                    <option value="2">First-time</option>
+                                </select>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Address</label>
+                                <textarea id="address" class="form-control" rows="2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-danger">Save Donor</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications Toast -->
+    <div class="toast-container">
+        <div id="liveToast" class="toast align-items-center text-white bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toastMessage">Action executed successfully.</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE_URL = "http://127.0.0.1:8000/api";
+        // Auth guard
+        if (!localStorage.getItem('username')) { window.location.href = 'login.html'; }
+        const userRole = localStorage.getItem('userRole');
+        const loggedInUser = localStorage.getItem('username');
+
+        let modalInstance;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            modalInstance = new bootstrap.Modal(document.getElementById('donorModal'));
+            loadDonors();
+            document.getElementById('userBadge').innerText = `${loggedInUser} (${userRole})`;
+            pollNotifications();
+            setInterval(pollNotifications, 10000);
+        });
+
+        async function loadDonors() {
+            const endpoint = `${API_BASE_URL}/donors`;
+            
+            try {
+                const response = await fetch(endpoint);
+                if (!response.ok) throw new Error("Could not fetch");
+                const data = await response.json();
+                
+                const tableBody = document.getElementById("donorsTableBody");
+                tableBody.innerHTML = "";
+                
+                data.forEach(donor => {
+                    const row = `
+                        <tr>
+                            <td>#${donor.id}</td>
+                            <td>${donor.firstname}</td>
+                            <td>${donor.lastname}</td>
+                            <td><span class="badge badge-blood">${donor.blood_group || 'O+'}</span></td>
+                            <td>${donor.category_name || 'Regular'}</td>
+                            <td>${donor.customer_phone}</td>
+                            <td>${donor.last_donation_date || 'N/A'}</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-primary" onclick="prepareEdit(${donor.id})"><i class="bi bi-pencil"></i></button>
+                                <button class="btn btn-sm btn-outline-danger btn-delete-donor" onclick="deleteDonor(${donor.id})"><i class="bi bi-trash"></i></button>
+                            </td>
+                        </tr>
+                    `;
+                    tableBody.insertAdjacentHTML('beforeend', row);
+                });
+
+                // Role-based: hide delete buttons for Staff
+                if (userRole !== 'Admin') {
+                    document.querySelectorAll('.btn-delete-donor').forEach(btn => btn.style.display = 'none');
+                }
+            } catch (error) {
+                showToast("Failed to connect to the backend server.");
+            }
+        }
+
+        function prepareAddDonor() {
+            document.getElementById("donorForm").reset();
+            document.getElementById("donorId").value = "";
+            document.getElementById("donorModalLabel").innerText = "Register New Donor";
+        }
+
+        async function editDonor(id) {
+            prepareAddDonor();
+            document.getElementById("donorModalLabel").innerText = "Edit Donor Details";
+            document.getElementById("donorId").value = id;
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/donors/${id}`);
+                if (response.ok) {
+                    const donor = await response.json();
+                    document.getElementById("firstname").value = donor.firstname;
+                    document.getElementById("lastname").value = donor.lastname;
+                    document.getElementById("blood_type_id").value = donor.blood_type_id;
+                    document.getElementById("customer_phone").value = donor.customer_phone;
+                    document.getElementById("donor_category_id").value = donor.donor_category_id || "1";
+                    document.getElementById("address").value = donor.address || "";
+                    modalInstance.show();
+                } else {
+                    showToast("Failed to fetch donor details.");
+                }
+            } catch (err) {
+                showToast("Error connecting to server.");
+            }
+        }
+
+        async function saveDonor(event) {
+            event.preventDefault();
+            const id = document.getElementById("donorId").value;
+            const isEdit = id !== "";
+            const endpoint = isEdit ? `${API_BASE_URL}/donors/${id}` : `${API_BASE_URL}/donors`;
+            const method = isEdit ? "PUT" : "POST";
+            
+            const payload = {
+                firstname: document.getElementById("firstname").value,
+                lastname: document.getElementById("lastname").value,
+                blood_type_id: parseInt(document.getElementById("blood_type_id").value),
+                customer_phone: document.getElementById("customer_phone").value,
+                donor_category_id: parseInt(document.getElementById("donor_category_id").value),
+                address: document.getElementById("address").value,
+                eligibility_state: true,
+                last_donation_date: new Date().toISOString().split('T')[0]
+            };
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: method,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    modalInstance.hide();
+                    showToast(isEdit ? "Donor details updated successfully!" : "Donor successfully registered!");
+                    loadDonors();
+                } else {
+                    showToast("Failed to save donor.");
+                }
+            } catch (err) {
+                showToast("Connection failure.");
+            }
+        }
+
+        async function deleteDonor(id) {
+            if(!confirm("Are you sure?")) return;
+            const endpoint = `${API_BASE_URL}/donors/${id}`;
+
+            try {
+                const response = await fetch(endpoint, { method: "DELETE" });
+                if (response.ok) {
+                    showToast("Donor deleted.");
+                    loadDonors();
+                } else {
+                    showToast("Error deleting donor.");
+                }
+            } catch (err) {
+                showToast("Connection error.");
+            }
+        }
+
+        function showToast(message) {
+            document.getElementById("toastMessage").innerText = message;
+            const toast = new bootstrap.Toast(document.getElementById('liveToast'));
+            toast.show();
+        }
+
+        let lastNotifCount = 0;
+        async function pollNotifications() {
+            try {
+                const res = await fetch(`${API_BASE_URL}/notifications/count`);
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('notifBadge').innerText = data.count;
+                    if (data.count > lastNotifCount && lastNotifCount > 0) {
+                        const nRes = await fetch(`${API_BASE_URL}/notifications`);
+                        if (nRes.ok) {
+                            const notifs = await nRes.json();
+                            if (notifs.length > 0) showLiveToast(notifs[0].message, notifs[0].type);
+                        }
+                    }
+                    lastNotifCount = data.count;
+                }
+            } catch(e) { console.error(e); }
+        }
+        function showLiveToast(message, type) {
+            const container = document.getElementById('liveToastContainer');
+            if (!container) return;
+            const toastId = 'toast_' + Date.now();
+            const bgClass = type && type.includes('CRITICAL') ? 'bg-danger' : 'bg-dark';
+            const html = `<div id="${toastId}" class="toast align-items-center text-white ${bgClass} border-0 mb-2" role="alert"><div class="d-flex"><div class="toast-body"><i class="bi bi-bell-fill me-2"></i>${message}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div></div>`;
+            container.insertAdjacentHTML('beforeend', html);
+            const toastEl = document.getElementById(toastId);
+            const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+            toast.show();
+            toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+        }
+        function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+    </script>
+    <div id="liveToastContainer" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:1080;"></div>
+</body>
+</html>
