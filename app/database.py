@@ -19,7 +19,14 @@ else:
     clean_db_url = DATABASE_URL
 
 # Async Engine for Neon / PostgreSQL with explicit SSL parameter
-engine = create_async_engine(clean_db_url, connect_args={"ssl": True}, echo=True, future=True)
+engine = create_async_engine(
+    clean_db_url, 
+    connect_args={"ssl": True}, 
+    pool_pre_ping=True,
+    pool_recycle=300,
+    echo=True, 
+    future=True
+)
 
 # Async Session Factory
 AsyncSessionLocal = sessionmaker(
