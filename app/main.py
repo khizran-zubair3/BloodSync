@@ -73,10 +73,8 @@ async def startup_event():
             print(f"Startup seeding warning (maybe tables are not created yet): {e}")
             await session.rollback()
 
+from fastapi.responses import HTMLResponse, RedirectResponse
+
 @app.get("/")
 def get_root():
-    return {
-        "message": "Welcome to BloodSync Blood Bank API!",
-        "documentation": "/docs",
-        "demo_frontend_instructions": "Open the /templates/dashboard.html file directly in your browser."
-    }
+    return RedirectResponse(url="/templates/login.html")
