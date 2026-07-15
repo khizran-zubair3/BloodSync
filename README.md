@@ -130,7 +130,7 @@ http://localhost:3000
 **Khizran Zubair**
 BSc Software Engineering — SZABIST University, Karachi
 📧 khizranzubair3@gmail.com
-🔗 [LinkedIn](https://linkedin.com/in/khizranzubair)
+🔗 [LinkedIn](https://www.linkedin.com/in/khizran-zubair-094a5624a)
 🐙 [GitHub](https://github.com/khizran-zubair3)
 
 ---
