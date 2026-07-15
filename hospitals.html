@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospitals - BloodSync</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+
+    <div id="sidebar-placeholder"></div>
+
+    <div class="main-content">
+        <div class="top-bar d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-0 text-dark fw-bold">Hospitals Management</h4>
+                <small class="text-muted">Linked hospitals and clinics</small>
+            </div>
+            <button id="btnAddHosp" class="btn btn-primary" style="display:none;" data-bs-toggle="modal" data-bs-target="#hospModal">
+                <i class="bi bi-plus-lg me-1"></i> Add Hospital
+            </button>
+        </div>
+
+        <div class="card table-card">
+            <div class="card-body p-4">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Hospital Name</th>
+                            <th>Address</th>
+                            <th>Contact</th>
+                            <th class="text-end admin-only">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hospTableBody">
+                        <tr><td colspan="5" class="text-center text-muted py-4">Loading data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Modal -->
+    <div class="modal fade" id="hospModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-building-add me-2"></i>Add Hospital</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="addHospForm">
+                        <div class="mb-3"><label class="fw-bold text-dark">Hospital Name</label><input type="text" class="form-control" id="hName" required></div>
+                        <div class="mb-3"><label class="fw-bold text-dark">Address</label><input type="text" class="form-control" id="hAddress" required></div>
+                        <div class="mb-3"><label class="fw-bold text-dark">Contact Info</label><input type="text" class="form-control" id="hContact" required></div>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold py-2">Save Hospital</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal fade" id="editHospModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Edit Hospital</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="editHospForm">
+                        <input type="hidden" id="eHospId">
+                        <div class="mb-3"><label class="fw-bold text-dark">Hospital Name</label><input type="text" class="form-control" id="ehName" required></div>
+                        <div class="mb-3"><label class="fw-bold text-dark">Address</label><input type="text" class="form-control" id="ehAddress" required></div>
+                        <div class="mb-3"><label class="fw-bold text-dark">Contact Info</label><input type="text" class="form-control" id="ehContact" required></div>
+                        <button type="submit" class="btn btn-dark w-100 fw-bold py-2">Update Details</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        $("#sidebar-placeholder").load("sidebar.html", function() {
+            document.getElementById('userRoleBadge').innerText = localStorage.getItem('role');
+            if (localStorage.getItem('role') === 'Admin') {
+                document.getElementById('btnAddHosp').style.display = 'block';
+            } else {
+                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+            }
+        });
+
+        const token = localStorage.getItem('token');
+        async function loadHospitals() {
+            try {
+                const res = await fetch('http://localhost:5000/api/modules/hospitals', { headers: { 'Authorization': token }});
+                const data = await res.json();
+                if(data.length === 0) {
+                    document.getElementById('hospTableBody').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No hospitals found.</td></tr>';
+                } else {
+                    document.getElementById('hospTableBody').innerHTML = data.map(h => `
+                        <tr>
+                            <td class="text-muted">#${h.id}</td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div style="width: 45px; height: 45px; background: #e7f5ff; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #0d6efd; margin-right: 15px;">
+                                        <i class="bi bi-hospital fs-5"></i>
+                                    </div>
+                                    <span class="fw-bold text-dark">${h.name}</span>
+                                </div>
+                            </td>
+                            <td class="text-muted">${h.address}</td>
+                            <td><i class="bi bi-telephone me-1 text-success"></i>${h.contact_info}</td>
+                            <td class="text-end admin-only">
+                                <button class="btn btn-sm btn-outline-primary px-3" style="border-radius:10px;" onclick="openEdit(${h.id}, '${h.name}', '${h.address}', '${h.contact_info}')"><i class="bi bi-pencil me-1"></i>Edit</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (err) {
+                document.getElementById('hospTableBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error loading data.</td></tr>';
+            }
+        }
+
+        document.getElementById('addHospForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await fetch('http://localhost:5000/api/modules/hospitals', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                body: JSON.stringify({ name: document.getElementById('hName').value, address: document.getElementById('hAddress').value, contact_info: document.getElementById('hContact').value })
+            });
+            if(res.ok) { alert('Hospital Added!'); window.location.reload(); } else { alert('BLOCKED!'); }
+        });
+
+        function openEdit(id, name, address, contact) {
+            document.getElementById('eHospId').value = id; document.getElementById('ehName').value = name; document.getElementById('ehAddress').value = address; document.getElementById('ehContact').value = contact;
+            new bootstrap.Modal(document.getElementById('editHospModal')).show();
+        }
+
+        document.getElementById('editHospForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('eHospId').value;
+            const res = await fetch(`http://localhost:5000/api/modules/hospitals/${id}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                body: JSON.stringify({ name: document.getElementById('ehName').value, address: document.getElementById('ehAddress').value, contact_info: document.getElementById('ehContact').value })
+            });
+            if(res.ok) { alert('Updated!'); window.location.reload(); } else { alert('BLOCKED!'); }
+        });
+
+        loadHospitals();
+        function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+    </script>
+</body>
+</html>

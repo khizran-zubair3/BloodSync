@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Donors - BloodSync</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+
+    <div id="sidebar-placeholder"></div>
+
+    <div class="main-content">
+        <div class="top-bar d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-light d-md-none me-3 shadow-sm" id="sidebarToggle" style="border-radius: 10px;">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+                <div>
+                    <h4 class="mb-0 text-dark fw-bold">Donors Management</h4>
+                    <small class="text-muted">View, add, and manage blood donors</small>
+                </div>
+            </div>
+            <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#donorModal">
+                <i class="bi bi-plus-lg me-1"></i> Add Donor
+            </button>
+        </div>
+
+        <div class="card table-card">
+            <div class="card-body p-4">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Donor Name</th>
+                            <th>Contact Info</th>
+                            <th>Blood Group</th>
+                            <th class="text-end admin-only">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="donorTableBody">
+                        <tr><td colspan="5" class="text-center text-muted py-4">Loading data from Neon DB...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Modal -->
+    <div class="modal fade" id="donorModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-person-plus-fill me-2"></i>Add New Donor</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="addDonorForm">
+                        <div class="mb-3"><label class="fw-bold text-dark">Full Name</label><input type="text" class="form-control" id="dName" required></div>
+                        <div class="mb-3"><label class="fw-bold text-dark">Contact Number</label><input type="text" class="form-control" id="dContact" required></div>
+                        <div class="mb-3">
+                            <label class="fw-bold text-dark">Blood Group</label>
+                            <select class="form-select" id="dBloodId" required>
+                                <option value="">Select Blood Group...</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-danger w-100 fw-bold py-2">Save Donor</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal fade" id="editDonorModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Edit Donor</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="editDonorForm">
+                        <input type="hidden" id="eDonorId">
+                        <div class="mb-3"><label class="fw-bold text-dark">Full Name</label><input type="text" class="form-control" id="eName" required></div>
+                        <div class="mb-3"><label class="fw-bold text-dark">Contact Number</label><input type="text" class="form-control" id="eContact" required></div>
+                        <div class="mb-3">
+                            <label class="fw-bold text-dark">Blood Group</label>
+                            <select class="form-select" id="eBloodId" required>
+                                <option value="">Select Blood Group...</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-dark w-100 fw-bold py-2">Update Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        $("#sidebar-placeholder").load("sidebar.html", function() {
+            document.getElementById('userRoleBadge').innerText = localStorage.getItem('role');
+            if (localStorage.getItem('role') === 'Staff') document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+        });
+
+        const token = localStorage.getItem('token');
+        let bloodTypeMap = {};
+
+        async function loadData() {
+            try {
+                const bRes = await fetch('http://localhost:5000/api/modules/blood-stock', { headers: { 'Authorization': token }});
+                const bloodTypes = await bRes.json();
+                
+                const dSelect = document.getElementById('dBloodId');
+                const eSelect = document.getElementById('eBloodId');
+                
+                bloodTypes.forEach(b => {
+                    bloodTypeMap[b.id] = b.blood_type || b.blood_group;
+                    let displayName = b.blood_type || b.blood_group;
+                    dSelect.innerHTML += `<option value="${b.id}">${displayName}</option>`;
+                    eSelect.innerHTML += `<option value="${b.id}">${displayName}</option>`;
+                });
+
+                const res = await fetch('http://localhost:5000/api/modules/donors', { headers: { 'Authorization': token }});
+                const data = await res.json();
+                if(data.length === 0) {
+                    document.getElementById('donorTableBody').innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No donors found.</td></tr>';
+                } else {
+                    document.getElementById('donorTableBody').innerHTML = data.map(d => {
+                        let bgName = bloodTypeMap[d.blood_type_id] || d.blood_type_id;
+                        return `
+                        <tr>
+                            <td class="text-muted">#${d.id}</td>
+                            <td class="fw-bold text-dark"><i class="bi bi-person-circle text-danger me-2"></i>${d.name}</td>
+                            <td>${d.contact_info}</td>
+                            <td><span class="badge bg-danger px-3 py-2 shadow-sm" style="border-radius:20px;">${bgName}</span></td>
+                            <td class="text-end admin-only">
+                                <button class="btn btn-sm btn-outline-primary shadow-sm me-1" style="border-radius:8px;" onclick="openEditModal(${d.id}, '${d.name}', '${d.contact_info}', ${d.blood_type_id})"><i class="bi bi-pencil"></i> Edit</button>
+                                <button class="btn btn-sm btn-outline-danger shadow-sm" style="border-radius:8px;" onclick="deleteDonor(${d.id})"><i class="bi bi-trash"></i></button>
+                            </td>
+                        </tr>
+                        `;
+                    }).join('');
+                }
+            } catch (err) {
+                document.getElementById('donorTableBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Error loading data.</td></tr>';
+            }
+        }
+
+        document.getElementById('addDonorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await fetch('http://localhost:5000/api/modules/donors', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                body: JSON.stringify({ name: document.getElementById('dName').value, contact_info: document.getElementById('dContact').value, blood_type_id: document.getElementById('dBloodId').value })
+            });
+            if(res.ok) { alert('Donor Added!'); window.location.reload(); }
+        });
+
+        function openEditModal(id, name, contact, bloodId) {
+            document.getElementById('eDonorId').value = id; document.getElementById('eName').value = name; document.getElementById('eContact').value = contact; document.getElementById('eBloodId').value = bloodId;
+            new bootstrap.Modal(document.getElementById('editDonorModal')).show();
+        }
+
+        document.getElementById('editDonorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('eDonorId').value;
+            const res = await fetch(`http://localhost:5000/api/modules/donors/${id}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                body: JSON.stringify({ name: document.getElementById('eName').value, contact_info: document.getElementById('eContact').value, blood_type_id: document.getElementById('eBloodId').value })
+            });
+            if(res.ok) { alert('Updated!'); window.location.reload(); } else { alert('BLOCKED!'); }
+        });
+
+        async function deleteDonor(id) {
+            if(confirm('Delete this donor?')) {
+                const res = await fetch(`http://localhost:5000/api/modules/donors/${id}`, { method: 'DELETE', headers: { 'Authorization': token }});
+                if(res.ok) { alert('Deleted!'); window.location.reload(); }
+            }
+        }
+        loadData();
+        function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+    </script>
+</body>
+</html>

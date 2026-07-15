@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blood Stock - BloodSync</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .blood-badge { width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .bg-a-pos { background: linear-gradient(45deg, #dc3545, #a71d2a); }
+        .bg-a-neg { background: linear-gradient(45deg, #6c757d, #495057); }
+        .bg-b-pos { background: linear-gradient(45deg, #0d6efd, #0b5ed7); }
+        .bg-b-neg { background: linear-gradient(45deg, #198754, #157347); }
+        .bg-ab-pos { background: linear-gradient(45deg, #6610f2, #520dc2); }
+        .bg-ab-neg { background: linear-gradient(45deg, #d63384, #b02a6e); }
+        .bg-o-pos { background: linear-gradient(45deg, #fd7e14, #e8590c); }
+        .bg-o-neg { background: linear-gradient(45deg, #ffc107, #ffca2c); color: #333 !important; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar-placeholder"></div>
+
+    <div class="main-content">
+        <div class="top-bar d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-light d-md-none me-3 shadow-sm" id="sidebarToggle" style="border-radius: 10px;">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+                <div>
+                    <h4 class="mb-0 text-dark fw-bold">Blood Stock Inventory</h4>
+                    <small class="text-muted">Real-time availability of blood units</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="card table-card">
+            <div class="card-body p-4">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Blood Type</th>
+                            <th>Available Units</th>
+                            <th>Status</th>
+                            <th class="text-end admin-only">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stockTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Stock Modal -->
+    <div class="modal fade" id="editStockModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-pencil-square me-2"></i>Update Stock</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="editStockForm">
+                        <input type="hidden" id="eStockId">
+                        <div class="mb-3">
+                            <label class="fw-bold text-dark">New Stock Units</label>
+                            <input type="number" class="form-control form-control-lg" id="eUnits" required>
+                        </div>
+                        <button type="submit" class="btn btn-danger w-100 fw-bold py-2">Update Inventory</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        $("#sidebar-placeholder").load("sidebar.html", function() {
+            document.getElementById('userRoleBadge').innerText = localStorage.getItem('role');
+            if (localStorage.getItem('role') === 'Staff') document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+        });
+
+        const token = localStorage.getItem('token');
+        function getBloodClass(type) {
+            if(type === 'A+') return 'bg-a-pos'; if(type === 'A-') return 'bg-a-neg';
+            if(type === 'B+') return 'bg-b-pos'; if(type === 'B-') return 'bg-b-neg';
+            if(type === 'AB+') return 'bg-ab-pos'; if(type === 'AB-') return 'bg-ab-neg';
+            if(type === 'O+') return 'bg-o-pos'; if(type === 'O-') return 'bg-o-neg';
+            return 'bg-secondary';
+        }
+
+        async function loadStock() {
+            const res = await fetch('http://localhost:5000/api/modules/blood-stock', { headers: { 'Authorization': token }});
+            const data = await res.json();
+            document.getElementById('stockTableBody').innerHTML = data.map(s => {
+                let statusText = s.stock_units < 5 ? 'Low Stock' : 'Available';
+                let statusClass = s.stock_units < 5 ? 'danger' : 'success';
+                return `
+                <tr>
+                    <td><div class="blood-badge ${getBloodClass(s.blood_type)}">${s.blood_type}</div></td>
+                    <td class="fw-bold fs-5 text-dark">${s.stock_units} <span class="text-muted fw-normal fs-6">Units</span></td>
+                    <td><span class="badge bg-${statusClass} px-3 py-2" style="border-radius:20px;">${statusText}</span></td>
+                    <td class="text-end admin-only">
+                        <button class="btn btn-sm btn-outline-dark px-3" style="border-radius:10px;" onclick="openEdit(${s.id}, ${s.stock_units})"><i class="bi bi-pencil me-1"></i>Restock</button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        function openEdit(id, units) {
+            document.getElementById('eStockId').value = id; document.getElementById('eUnits').value = units;
+            new bootstrap.Modal(document.getElementById('editStockModal')).show();
+        }
+
+        document.getElementById('editStockForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('eStockId').value;
+            const res = await fetch(`http://localhost:5000/api/modules/blood-stock/${id}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                body: JSON.stringify({ stock_units: document.getElementById('eUnits').value })
+            });
+            if(res.ok) { alert('Stock Updated!'); window.location.reload(); } else { alert('BLOCKED!'); }
+        });
+
+        loadStock();
+        function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+    </script>
+</body>
+</html>

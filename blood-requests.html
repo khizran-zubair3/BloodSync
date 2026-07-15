@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blood Requests - BloodSync</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .urgency-badge { padding: 8px 15px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; }
+        .urgency-normal { background: #e8f5e9; color: #2e7d32; }
+        .urgency-urgent { background: #fff3e0; color: #ef6c00; }
+        .urgency-critical { background: #ffebee; color: #c62828; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); } 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); } }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar-placeholder"></div>
+
+    <div class="main-content">
+        <div class="top-bar d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-light d-md-none me-3 shadow-sm" id="sidebarToggle" style="border-radius: 10px;">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+                <div>
+                    <h4 class="mb-0 text-dark fw-bold">Blood Requests</h4>
+                    <small class="text-muted">Incoming requests from hospitals</small>
+                </div>
+            </div>
+            <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#reqModal">
+                <i class="bi bi-plus-lg me-1"></i> New Request
+            </button>
+        </div>
+
+        <div class="card table-card">
+            <div class="card-body p-4">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Req ID</th>
+                            <th>Hospital ID</th>
+                            <th>Blood Type</th>
+                            <th>Units</th>
+                            <th>Urgency</th>
+                            <th>Status</th>
+                            <th class="text-end admin-only">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reqTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Request Modal -->
+    <div class="modal fade" id="reqModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-plus me-2"></i>Create Request</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="addReqForm">
+                        <div class="mb-3">
+                            <label class="fw-bold text-dark">Hospital</label>
+                            <select class="form-select" id="rHospId" required>
+                                <option value="">Select Hospital...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="fw-bold text-dark">Blood Group</label>
+                            <select class="form-select" id="rBloodId" required>
+                                <option value="">Select Blood Group...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3"><label class="fw-bold text-dark">Units Requested</label><input type="number" class="form-control" id="rUnits" required></div>
+                        <div class="mb-3">
+                            <label class="fw-bold text-dark">Urgency Level</label>
+                            <select class="form-select" id="rUrgency"><option>Normal</option><option>Urgent</option><option>Critical</option></select>
+                        </div>
+                        <button type="submit" class="btn btn-danger w-100 fw-bold py-2">Submit Request</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Status Modal -->
+    <div class="modal fade" id="statusModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-arrow-repeat me-2"></i>Update Status</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="statusForm">
+                        <input type="hidden" id="sReqId">
+                        <div class="mb-3">
+                            <label class="fw-bold text-dark">New Status</label>
+                            <select class="form-select form-select-lg" id="sStatus"><option>Pending</option><option>Approved</option><option>Fulfilled</option><option>Rejected</option></select>
+                        </div>
+                        <button type="submit" class="btn btn-dark w-100 fw-bold py-2">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        $("#sidebar-placeholder").load("sidebar.html", function() {
+            document.getElementById('userRoleBadge').innerText = localStorage.getItem('role');
+            if (localStorage.getItem('role') === 'Staff') document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+        });
+
+        const token = localStorage.getItem('token');
+        let hospitalsMap = {};
+        let bloodTypeMap = {};
+
+        async function loadData() {
+            try {
+                const [hospRes, bloodRes] = await Promise.all([
+                    fetch('http://localhost:5000/api/modules/hospitals', { headers: { 'Authorization': token }}),
+                    fetch('http://localhost:5000/api/modules/blood-stock', { headers: { 'Authorization': token }})
+                ]);
+                const hospitals = await hospRes.json();
+                const bloodTypes = await bloodRes.json();
+
+                const hSelect = document.getElementById('rHospId');
+                hospitals.forEach(h => {
+                    hospitalsMap[h.id] = h.name;
+                    hSelect.innerHTML += `<option value="${h.id}">${h.name}</option>`;
+                });
+
+                const bSelect = document.getElementById('rBloodId');
+                bloodTypes.forEach(b => {
+                    bloodTypeMap[b.id] = b.blood_type || b.blood_group;
+                    let displayName = b.blood_type || b.blood_group;
+                    bSelect.innerHTML += `<option value="${b.id}">${displayName}</option>`;
+                });
+
+                const res = await fetch('http://localhost:5000/api/modules/blood-requests', { headers: { 'Authorization': token }});
+                const data = await res.json();
+                document.getElementById('reqTableBody').innerHTML = data.map(r => {
+                    let statusClass = r.status === 'Pending' ? 'warning' : r.status === 'Approved' ? 'info' : r.status === 'Fulfilled' ? 'success' : 'danger';
+                    let urgClass = r.urgency === 'Normal' ? 'urgency-normal' : r.urgency === 'Urgent' ? 'urgency-urgent' : 'urgency-critical';
+                    let hospName = hospitalsMap[r.hospital_id] || `ID ${r.hospital_id}`;
+                    let bgName = bloodTypeMap[r.blood_type_id] || `ID ${r.blood_type_id}`;
+                    
+                    return `
+                    <tr>
+                        <td class="text-muted">#REQ-${r.id}</td>
+                        <td class="fw-bold"><i class="bi bi-hospital text-primary me-1"></i>${hospName}</td>
+                        <td><span class="badge bg-danger px-3 py-2 shadow-sm" style="border-radius:20px;">${bgName}</span></td>
+                        <td class="fw-bold">${r.units_requested}</td>
+                        <td><span class="urgency-badge ${urgClass}">${r.urgency}</span></td>
+                        <td><span class="badge bg-${statusClass} px-3 py-2 shadow-sm" style="border-radius:20px;">${r.status}</span></td>
+                        <td class="text-end admin-only">
+                            <button class="btn btn-sm btn-outline-dark shadow-sm px-3" style="border-radius:10px;" onclick="openStatus(${r.id}, '${r.status}')"><i class="bi bi-check2-square me-1"></i>Update</button>
+                        </td>
+                    </tr>`;
+                }).join('');
+            } catch(e) {
+                console.error(e);
+                document.getElementById('reqTableBody').innerHTML = '<tr><td colspan="7" class="text-center text-danger py-4">Error loading data.</td></tr>';
+            }
+        }
+
+        document.getElementById('addReqForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await fetch('http://localhost:5000/api/modules/blood-requests', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                body: JSON.stringify({ hospital_id: document.getElementById('rHospId').value, blood_type_id: document.getElementById('rBloodId').value, units_requested: document.getElementById('rUnits').value, urgency: document.getElementById('rUrgency').value })
+            });
+            if(res.ok) { alert('Request Created!'); window.location.reload(); }
+        });
+
+        function openStatus(id, status) {
+            document.getElementById('sReqId').value = id; document.getElementById('sStatus').value = status;
+            new bootstrap.Modal(document.getElementById('statusModal')).show();
+        }
+
+        document.getElementById('statusForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('sReqId').value;
+            const res = await fetch(`http://localhost:5000/api/modules/blood-requests/${id}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                body: JSON.stringify({ status: document.getElementById('sStatus').value })
+            });
+            if(res.ok) { alert('Status Updated!'); window.location.reload(); } else { alert('BLOCKED!'); }
+        });
+
+        loadData();
+        function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+    </script>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - BloodSync</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .stat-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: var(--radius-lg);
+            padding: 25px;
+            display: flex;
+            align-items: center;
+            box-shadow: var(--shadow-soft);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, transparent 60%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .stat-card:hover::before { opacity: 1; }
+        .icon-box {
+            width: 70px; height: 70px;
+            border-radius: 20px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem;
+            margin-right: 20px;
+            box-shadow: inset 0 2px 10px rgba(255,255,255,0.5), 0 5px 15px rgba(0,0,0,0.05);
+        }
+        .icon-red { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%); color: #e63946; }
+        .icon-blue { background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%); color: #1d3557; }
+        .icon-yellow { background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); color: #d35400; }
+        
+        .notification-item {
+            background: rgba(255,255,255,0.6);
+            border-radius: var(--radius-md);
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--primary);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            transition: transform 0.2s;
+        }
+        .notification-item:hover { transform: translateX(5px); background: #ffffff; }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar Load -->
+    <div id="sidebar-placeholder"></div>
+
+    <div class="main-content">
+        <div class="top-bar d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-light d-md-none me-3 shadow-sm" id="sidebarToggle" style="border-radius: 10px;">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+                <div>
+                    <h3 class="mb-1 text-dark fw-bold" style="font-size: 1.8rem;">System Overview</h3>
+                    <span class="text-muted fw-medium">Welcome back to BloodSync Management</span>
+                </div>
+            </div>
+            <!-- Generate Report button removed as requested -->
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-md-4 mb-3">
+                <div class="stat-card">
+                    <div class="icon-box icon-red"><i class="bi bi-person-heart"></i></div>
+                    <div>
+                        <h6 class="text-muted fw-bold text-uppercase mb-1" style="letter-spacing: 1px; font-size: 0.75rem;">Total Donors</h6>
+                        <h2 class="text-dark fw-bolder mb-0" id="totalDonors">0</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="stat-card">
+                    <div class="icon-box icon-blue"><i class="bi bi-hospital"></i></div>
+                    <div>
+                        <h6 class="text-muted fw-bold text-uppercase mb-1" style="letter-spacing: 1px; font-size: 0.75rem;">Linked Hospitals</h6>
+                        <h2 class="text-dark fw-bolder mb-0" id="totalHospitals">0</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="stat-card">
+                    <div class="icon-box icon-yellow"><i class="bi bi-droplet-half"></i></div>
+                    <div>
+                        <h6 class="text-muted fw-bold text-uppercase mb-1" style="letter-spacing: 1px; font-size: 0.75rem;">Blood Units</h6>
+                        <h2 class="text-dark fw-bolder mb-0" id="totalUnits">0</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8 mb-4">
+                <div class="card p-4 glass-panel h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="text-dark fw-bold mb-0">Blood Stock Visualization</h5>
+                    </div>
+                    <canvas id="bloodChart" height="120"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-4 mb-4">
+                <div class="card p-4 glass-panel h-100" style="max-height: 450px; overflow-y: auto;">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="text-dark fw-bold mb-0"><i class="bi bi-bell-fill text-danger me-2"></i>Live Alerts</h5>
+                        <span class="badge bg-danger rounded-pill">3 New</span>
+                    </div>
+                    <div id="notifContainer">
+                        <div class="notification-item" style="border-left-color: #ffc107;">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1 text-dark fw-bold"><i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> Low Stock</h6>
+                                <small class="text-muted">Just now</small>
+                            </div>
+                            <p class="mb-0 small text-muted">O- blood type is running below threshold.</p>
+                        </div>
+                        <div class="notification-item" style="border-left-color: #198754;">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1 text-dark fw-bold"><i class="bi bi-check-circle-fill text-success me-1"></i> Registration</h6>
+                                <small class="text-muted">10m ago</small>
+                            </div>
+                            <p class="mb-0 small text-muted">New donor registered successfully.</p>
+                        </div>
+                        <div class="notification-item" style="border-left-color: #0dcaf0;">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1 text-dark fw-bold"><i class="bi bi-info-circle-fill text-info me-1"></i> Request</h6>
+                                <small class="text-muted">1h ago</small>
+                            </div>
+                            <p class="mb-0 small text-muted">City Hospital requested 5 units of A+ blood.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Load Sidebar
+        $("#sidebar-placeholder").load("sidebar.html", function() {
+            document.getElementById('userRoleBadge').innerText = localStorage.getItem('role');
+            if (localStorage.getItem('role') === 'Staff') {
+                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+            }
+        });
+
+        const token = localStorage.getItem('token');
+        if (!token) { window.location.href = 'login.html'; } 
+        else {
+            async function fetchDashboard() {
+                try {
+                    const res = await fetch('http://localhost:5000/api/dashboard/stats', { headers: { 'Authorization': token }});
+                    const data = await res.json();
+                    
+                    document.getElementById('totalDonors').innerText = data.totalDonors || 0;
+                    document.getElementById('totalHospitals').innerText = data.totalHospitals || 0;
+                    let total = 0; 
+                    if(data.bloodStock) {
+                        data.bloodStock.forEach(b => total += parseInt(b.stock_units || 0));
+                    }
+                    document.getElementById('totalUnits').innerText = total;
+
+                    if(data.bloodStock) {
+                        const ctx = document.getElementById('bloodChart').getContext('2d');
+                        
+                        // Add gradient for chart
+                        let gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                        gradient.addColorStop(0, 'rgba(230, 57, 70, 0.8)');   
+                        gradient.addColorStop(1, 'rgba(230, 57, 70, 0.2)');
+
+                        new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: data.bloodStock.map(b => b.blood_type || 'Type'),
+                                datasets: [{
+                                    label: 'Units Available',
+                                    data: data.bloodStock.map(b => b.stock_units || 0),
+                                    backgroundColor: gradient,
+                                    borderColor: 'rgba(230, 57, 70, 1)',
+                                    borderWidth: 1,
+                                    borderRadius: 10, borderSkipped: false,
+                                    hoverBackgroundColor: '#e63946'
+                                }]
+                            },
+                            options: { 
+                                responsive: true, 
+                                plugins: {
+                                    legend: { display: false }
+                                },
+                                scales: { 
+                                    y: { 
+                                        beginAtZero: true, 
+                                        grid: { color: 'rgba(0,0,0,0.05)', borderDash: [5, 5] },
+                                        ticks: { font: { family: 'Outfit' } }
+                                    }, 
+                                    x: { 
+                                        grid: { display: false },
+                                        ticks: { font: { family: 'Outfit', weight: 'bold' } }
+                                    } 
+                                } 
+                            }
+                        });
+                    }
+                } catch (err) { console.error(err); }
+            }
+            fetchDashboard();
+        }
+
+        function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+    </script>
+</body>
+</html>

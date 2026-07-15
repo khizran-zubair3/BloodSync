@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appointments & Donations - BloodSync</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+
+    <div id="sidebar-placeholder"></div>
+
+    <div class="main-content">
+        <div class="top-bar d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-light d-md-none me-3 shadow-sm" id="sidebarToggle" style="border-radius: 10px;">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+                <div>
+                    <h3 class="mb-1 text-dark fw-bold" style="font-size: 1.8rem;">Appointments & Donations</h3>
+                    <span class="text-muted fw-medium">Manage donor appointments and log blood donations</span>
+                </div>
+            </div>
+            <div>
+                <button class="btn btn-primary shadow-sm" style="border-radius: 50px;" data-bs-toggle="modal" data-bs-target="#appointmentModal">
+                    <i class="bi bi-calendar-plus me-2"></i>Schedule Appointment
+                </button>
+            </div>
+        </div>
+
+        <div class="card table-card p-4 glass-panel">
+            <h5 class="text-dark fw-bold mb-4">Upcoming Appointments</h5>
+            <div class="table-responsive">
+                <table class="table" id="appointmentsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Donor ID</th>
+                            <th>Staff ID</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Data injected here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Appointment Modal -->
+    <div class="modal fade" id="appointmentModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Schedule Appointment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="appointmentForm">
+                        <div class="mb-3">
+                            <label class="form-label">Donor</label>
+                            <select id="appDonorId" class="form-select" required>
+                                <option value="">Select Donor...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Staff Member <small class="text-muted">(Optional)</small></label>
+                            <select id="appStaffId" class="form-select">
+                                <option value="">Select Staff (Optional)...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Date</label>
+                            <input type="date" id="appDate" class="form-control" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Schedule</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        $("#sidebar-placeholder").load("sidebar.html", function() {
+            document.getElementById('userRoleBadge').innerText = localStorage.getItem('role');
+            if (localStorage.getItem('role') === 'Staff') {
+                document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+            }
+        });
+
+        const token = localStorage.getItem('token');
+        if (!token) { window.location.href = 'login.html'; }
+
+        let donorsMap = {};
+        let staffMap = {};
+
+        async function loadDropdowns() {
+            try {
+                const [donorsRes, staffRes] = await Promise.all([
+                    fetch('http://localhost:5000/api/modules/donors', { headers: { 'Authorization': token }}),
+                    fetch('http://localhost:5000/api/modules/staff', { headers: { 'Authorization': token }})
+                ]);
+                const donors = await donorsRes.json();
+                const staff = await staffRes.json();
+
+                const donorSelect = document.getElementById('appDonorId');
+                donors.forEach(d => {
+                    donorsMap[d.id] = d.name;
+                    donorSelect.innerHTML += `<option value="${d.id}">${d.name}</option>`;
+                });
+
+                const staffSelect = document.getElementById('appStaffId');
+                staff.forEach(s => {
+                    staffMap[s.id] = s.username;
+                    staffSelect.innerHTML += `<option value="${s.id}">${s.username} (${s.role})</option>`;
+                });
+            } catch (err) { console.error("Error loading dropdowns", err); }
+        }
+
+        async function fetchAppointments() {
+            try {
+                const res = await fetch('http://localhost:5000/api/modules/appointments', { headers: { 'Authorization': token }});
+                const appointments = await res.json();
+                let rows = '';
+                appointments.forEach(a => {
+                    let badgeClass = a.status === 'Completed' ? 'bg-success' : 'bg-warning';
+                    let donorName = donorsMap[a.donor_id] || `Unknown (${a.donor_id})`;
+                    let staffName = staffMap[a.staff_id] || `Unknown (${a.staff_id})`;
+                    
+                    rows += `<tr>
+                        <td class="fw-bold text-muted">#${a.id}</td>
+                        <td class="fw-bold text-dark"><i class="bi bi-person-fill text-danger me-2"></i>${donorName}</td>
+                        <td>${staffName}</td>
+                        <td>${new Date(a.appointment_date).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}</td>
+                        <td><span class="badge ${badgeClass} rounded-pill px-3 shadow-sm">${a.status}</span></td>
+                        <td>
+                            ${a.status !== 'Completed' ? `<button class="btn btn-sm btn-dark shadow-sm" style="border-radius:20px;" onclick="markCompleted(${a.id})">Mark Complete</button>` : `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i> Logged</span>`}
+                        </td>
+                    </tr>`;
+                });
+                document.querySelector('#appointmentsTable tbody').innerHTML = rows || '<tr><td colspan="6" class="text-center text-muted py-4">No appointments scheduled</td></tr>';
+            } catch (err) { console.error(err); }
+        }
+
+        document.getElementById('appointmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const staffIdVal = document.getElementById('appStaffId').value;
+            const payload = {
+                donor_id: parseInt(document.getElementById('appDonorId').value),
+                staff_id: staffIdVal ? parseInt(staffIdVal) : null,
+                appointment_date: document.getElementById('appDate').value,
+                status: 'Scheduled'
+            };
+            try {
+                const res = await fetch('http://localhost:5000/api/modules/appointments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                if(res.ok) {
+                    bootstrap.Modal.getInstance(document.getElementById('appointmentModal')).hide();
+                    loadDropdowns().then(() => fetchAppointments());
+                } else { 
+                    alert('Failed: ' + (result.error || 'Unknown error'));
+                }
+            } catch (err) { alert('Network error: ' + err.message); }
+        });
+
+        async function markCompleted(id) {
+            try {
+                await fetch(`http://localhost:5000/api/modules/appointments/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                    body: JSON.stringify({ status: 'Completed' })
+                });
+                fetchAppointments();
+            } catch (err) { console.error(err); }
+        }
+
+        loadDropdowns().then(() => fetchAppointments());
+        function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+    </script>
+</body>
+</html>

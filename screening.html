@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screening Results - BloodSync</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        .result-badge { padding: 8px 15px; border-radius: 50px; font-weight: 600; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; }
+        .result-clean { background: #e8f5e9; color: #2e7d32; }
+        .result-positive { background: #ffebee; color: #c62828; }
+        .result-inconclusive { background: #fff3e0; color: #ef6c00; }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar-placeholder"></div>
+
+    <div class="main-content">
+        <div id="adminContent">
+            <div class="top-bar d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0 text-dark fw-bold">Screening Results</h4>
+                    <small class="text-muted">Medical tests and diagnostics</small>
+                </div>
+                <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#screenModal">
+                    <i class="bi bi-plus-lg me-1"></i> Add Result
+                </button>
+            </div>
+
+            <div class="card table-card">
+                <div class="card-body p-4">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Test ID</th>
+                                <th>Donor ID</th>
+                                <th>Test Type</th>
+                                <th>Result Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="screenTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="blockedContent" class="blocked-screen" style="display: none;">
+            <div class="blocked-box">
+                <i class="bi bi-shield-lock-fill text-danger" style="font-size: 4rem;"></i>
+                <h3 class="mt-3 text-dark fw-bold">Access Blocked</h3>
+                <p class="text-muted mt-2">You do not have permission to view Screening Results.<br>Only Admins can access this module.</p>
+                <a href="index.html" class="btn btn-outline-dark mt-3 px-4" style="border-radius:10px;"><i class="bi bi-arrow-left me-1"></i>Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Modal -->
+    <div class="modal fade" id="screenModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-file-earmark-medical me-2"></i>Add Screening Result</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="addScreenForm">
+                        <div class="mb-3"><label class="fw-bold text-dark">Donor ID</label><input type="number" class="form-control" id="scDonorId" required></div>
+                        <div class="mb-3">
+                            <label class="fw-bold text-dark">Test Type</label>
+                            <select class="form-select" id="scTestType"><option>HIV</option><option>Hepatitis B</option><option>Hepatitis C</option><option>Syphilis</option><option>Malaria</option></select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="fw-bold text-dark">Result Status</label>
+                            <select class="form-select" id="scResult"><option>Clean</option><option>Positive</option><option>Inconclusive</option></select>
+                        </div>
+                        <button type="submit" class="btn btn-danger w-100 fw-bold py-2">Save Result</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        $("#sidebar-placeholder").load("sidebar.html", function() {
+            document.getElementById('userRoleBadge').innerText = localStorage.getItem('role');
+            if (localStorage.getItem('role') !== 'Admin') {
+                document.getElementById('adminContent').style.display = 'none';
+                document.getElementById('blockedContent').style.display = 'flex';
+            }
+        });
+
+        const token = localStorage.getItem('token');
+        if (localStorage.getItem('role') === 'Admin') {
+            async function loadScreening() {
+                const res = await fetch('http://localhost:5000/api/modules/screening', { headers: { 'Authorization': token }});
+                const data = await res.json();
+                document.getElementById('screenTableBody').innerHTML = data.map(s => {
+                    let resClass = s.result_status === 'Clean' ? 'result-clean' : s.result_status === 'Positive' ? 'result-positive' : 'result-inconclusive';
+                    let resIcon = s.result_status === 'Clean' ? 'bi-check-circle-fill' : s.result_status === 'Positive' ? 'bi-exclamation-triangle-fill' : 'bi-question-circle-fill';
+                    return `
+                    <tr>
+                        <td class="text-muted">#SCR-${s.id}</td>
+                        <td class="fw-bold"><i class="bi bi-person-badge text-primary me-1"></i>${s.donor_id}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div style="width: 45px; height: 45px; background: #fce4ec; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #c62828; margin-right: 15px;">
+                                    <i class="bi bi-virus fs-5"></i>
+                                </div>
+                                <span class="fw-bold text-dark">${s.test_type}</span>
+                            </div>
+                        </td>
+                        <td><span class="result-badge ${resClass}"><i class="bi ${resIcon}"></i> ${s.result_status}</span></td>
+                    </tr>`;
+                }).join('');
+            }
+
+            document.getElementById('addScreenForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const res = await fetch('http://localhost:5000/api/modules/screening', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': token },
+                    body: JSON.stringify({ donor_id: document.getElementById('scDonorId').value, test_type: document.getElementById('scTestType').value, result_status: document.getElementById('scResult').value })
+                });
+                if(res.ok) { alert('Result Saved!'); window.location.reload(); }
+            });
+
+            loadScreening();
+        }
+        function logout() { localStorage.clear(); window.location.href = 'login.html'; }
+    </script>
+</body>
+</html>
